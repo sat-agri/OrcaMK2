@@ -52,7 +52,7 @@ This codebase is modular. **Do not put all code in one file.**
 
 ---
 
-
+## 🚀 Operation Guide
 
 ### Startup Sequence
 1. Power on the Pixhawk and Portenta.
