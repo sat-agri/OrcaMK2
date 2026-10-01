@@ -1,85 +1,108 @@
 # OrcaMK2
-OrcaMK2 controls a two-wheel skid-steer robotic hull communicating with a Pixhawk via MAVLink Protocol. Supports autonomous navigation with IMU-based collision detection (Escape Sequence) and manual RC operation. Includes heartbeat monitoring and failsafe mechanisms to halt motors if the Pixhawk connection drops.
 
-# RobotDuck --> OrcaMK1_DualDrive Firmware
+Firmware for the Portenta H7 robot, with two DC geared motors driven by a Cytron MDDS30 and a Pixhawk 6X connected over MAVLink.
 
-**Author:** Nazrin Hakeem Bin Khalid
+The active firmware is ordinary C++ (`.cpp` and `.h`) at the repository root. The original Arduino sketch is preserved in `OrcaMK1_DualDrive_legacy/` and is excluded from the build.
 
-**Date:** August 2026
+Current modes are **Manual RC** and **Auto forward with collision recovery**. GPS waypoint navigation is not implemented yet.
 
-**Status:** [Needs more field testing]
+## Build and upload
 
-## 📝 Overview
-This project controls a two-wheel skid-steer robotic body using an Arduino Portenta H7. It communicates with a Holybro Pixhawk 6X via the MAVLink Protocol. 
+Install [PlatformIO Core](https://docs.platformio.org/en/latest/core/installation/index.html), or the PlatformIO IDE extension for VS Code. Open the repository root and run:
 
-The firmware supports two modes:
-1.  **Autonomous Mode:** Drives forward automatically. Uses moving-average IMU data to detect collisions and execute a programmed escape sequence.
-2.  **Manual Mode:** Direct skid-steer control via RC controller and transmitter.
+```sh
+pio run
+```
 
-It also includes built-in failsafes to immediately halt all motors if communication with the Pixhawk is lost.
+PlatformIO installs the pinned STM32 platform and MAVLink dependency automatically. The target is the **Portenta H7 M7 core**; the firmware is written to `.pio/build/portenta_h7_m7/firmware.bin`.
 
----
+Arduino IDE is not needed. The [official PlatformIO board support](https://docs.platformio.org/en/stable/boards/ststm32/portenta_h7_m7.html) uses the Arduino framework for GPIO, PWM, timing and serial communication. Removing that framework would require a separate hardware port.
 
-## 🛠️ Hardware & Wiring
-*   **Microcontroller:** Arduino Portenta H7 + Portenta Breakout Board
-*   **Flight Controller:** Holybro Pixhawk 6X
-*   **Motor Driver:** Cytron MDDS30 SmartDriveDuo
-*   **Motors:** Two DC geared motors
-*   **Power:** Battery, solar panel and charge controller, power switch, terminal block, power module, and DC-DC converter
-*   **RC Input:** Receiver connected to the Pixhawk
+**Disconnect motor power before uploading:** startup briefly pulses both motors, and Auto mode can start driving before receiving an RC command.
 
-### Hardware Wiring Diagram
+Connect the Portenta over USB, then upload:
 
-![Orca hardware wiring showing the solar charging system, battery, motor driver, two motors, Pixhawk 6X, RC receiver, and Portenta breakout board](docs/images/orca-hardware-wiring.png)
+```sh
+pio run --target upload
+```
 
-[View the full-size wiring diagram](docs/images/orca-hardware-wiring.png).
+Uploading uses the existing DFU bootloader. If automatic reset fails, [double-press reset to enter bootloader mode](https://support.arduino.cc/hc/en-us/articles/4404067649554-Update-the-bootloader-on-Portenta-H7-boards) and retry. Use `pio device list` to list USB serial ports; add `--upload-port <port>` when a specific port is needed.
 
-### Pin Connections
-All pin configurations are defined in `Configs.h`. 
-*   **Motor 1 (Left):** PWM = D6, DIR = A3
-*   **Motor 2 (Right):** PWM = D5, DIR = A4
-*   **Pixhawk UART:** Serial1 (57600 baud)
+For the USB serial monitor:
 
-*   [Cirkit Designer wiring project](https://app.cirkitdesigner.com/project/8dd8c75b-f0f1-4eca-acd8-ed756c08ec5a)
+```sh
+pio device monitor
+```
 
----
+The monitor is configured for 57600 baud. The firmware currently emits no debug text; `Serial1` is the separate MAVLink connection to the Pixhawk.
 
-## 💻 Software & Dependencies
-*   **IDE:** Arduino IDE 2.3.8 (or newer)
-*   **Required Libraries:**
-    *   `MAVLink_common.h` - Must be installed in your Arduino libraries folder. Version: [MAVLink by Oleg Kalachev (2.0.29 or newer)]
+## Where to make changes
 
----
+| File | Responsibility |
+| --- | --- |
+| [`config.h`](config.h) | Pin assignments, baud rate, motor speeds, RC deadband, collision threshold and timing. Start here for tuning. |
+| [`main.cpp`](main.cpp) | `setup()` and `loop()`: serial startup, status LED, motor initialization and the main update call. |
+| [`motors.cpp`](motors.cpp) / [`motors.h`](motors.h) | Motor PWM/direction outputs, startup pulses, movement commands and manual skid-steer mixing. |
+| [`pixhawk.cpp`](pixhawk.cpp) / [`pixhawk.h`](pixhawk.h) | MAVLink heartbeat, RC mode selection, collision recovery and connection timeout. Owns its control state privately. |
+| [`platformio.ini`](platformio.ini) | Board, dependencies, source files, upload and monitor settings. |
+| [`tests/`](tests/) | Host behaviour check using simulated serial, pins and time. |
+| [`OrcaMK1_DualDrive_legacy/`](OrcaMK1_DualDrive_legacy/) | Unmodified original sketch, kept for reference only. |
 
-## 📂 Project Structure
-This codebase is modular. **Do not put all code in one file.**
+`platformio.ini` explicitly builds only `main.cpp`, `motors.cpp` and `pixhawk.cpp`. Add new firmware `.cpp` files to `build_src_filter` when extending the project; tests and legacy files are not firmware inputs. Keep motor control and MAVLink handling in their own modules.
 
-*   `OrcaMK1_DualDrive.ino`: The main loop, setup, and global variables.
-*   `Configs.h`: **Start Here.** This is the control panel. Change pin assignments, crash detection thresholds, and sample rates here.
-*   `Motors.ino`: Skid-steer mixing math and basic movement functions (forward, reverse, pivot).
-*   `MAVLink_Logic.ino`: Handles heartbeat, RC parsing (CH5 mode switch), IMU crash detection, and the failsafe system.
+## Control flow
 
----
+1. `setup()` starts both serial ports, flashes the blue LED three times, pulses each motor and starts the link timeout.
+2. `loop()` calls `pixhawk::update()`.
+3. Each update sends a heartbeat when due, checks the connection timeout, then handles incoming MAVLink messages.
+4. Manual mode mixes CH2 throttle and CH1 steering into left/right motor commands. Auto mode drives forward and processes `SCALED_IMU2` acceleration for collision detection.
 
-## 🚀 Operation Guide
+The rewrite preserves the existing motor directions, delays, RC mixing and mode behaviour. It does not add a separate M4 application.
 
-### Startup Sequence
-1. Power on the Pixhawk and Portenta.
-2. The Portenta will flash its **BLUE LED** three times.
-3. The motors will briefly pulse (Pre-flight warmup) to confirm driver connection.
+### RC controls and LEDs
 
-### Status LEDs (Portenta Built-in)
-*   🟢 **Solid GREEN:** Autonomous Mode Active.
-*   🔵 **Solid BLUE:** Manual RC Mode Active.
-*   🟦 **Cyan (Green + Blue):** Escape Sequence triggered (Collision detected).
-*   🔴 **Solid RED:** CRITICAL FAILSAFE. Pixhawk connection lost. Motors halted.
+| Input | Action |
+| --- | --- |
+| CH1 | Steering in Manual mode. |
+| CH2 | Forward/reverse in Manual mode. |
+| CH5 > 1500 microseconds | Manual mode; blue LED. |
+| CH5 <= 1500 microseconds | Auto mode; green LED. |
 
-### RC Control Mapping
-*   **CH5 (Mode Switch):** UP = Auto Mode, DOWN = Manual Mode.
-*   **CH1 (Aileron):** Steering (Manual Mode).
-*   **CH2 (Elevator):** Forward/Reverse (Manual Mode).
+A mode change first stops the motors. Collision recovery shows cyan; a communication timeout shows red.
 
----
+### Existing control limitations
 
-## ⚠️ Known Quirks & Next Steps
-*   Will need further field testing
+- Startup includes motor pulses and defaults to Auto. Motor output is not gated by the Pixhawk's armed state.
+- Collision recovery stops, reverses, stops, pivots, stops and drives forward again. Its blocking delays pause RC processing and timeout checks for about 11 seconds. Commands queued during recovery are discarded afterward.
+- The two-second connection timeout is refreshed by any successfully parsed MAVLink message. It does not separately detect stale RC input or validate the sender's identity.
+
+These behaviours are retained for compatibility and still need hardware/field testing. Responsive recovery and explicit arming should be addressed before expanding autonomous operation.
+
+## Hardware and wiring
+
+- Arduino Portenta H7 with Portenta Breakout Board.
+- Holybro Pixhawk 6X, with the RC receiver connected to the Pixhawk.
+- Cytron MDDS30 SmartDriveDuo and two DC geared motors.
+- Battery, solar panel/charge controller, switch, power module and DC-DC converter.
+
+| Connection | Portenta pin |
+| --- | --- |
+| Left motor PWM / direction | D6 / A3 |
+| Right motor PWM / direction | D5 / A4 |
+| Pixhawk UART | `Serial1`, 57600 baud |
+
+![Orca hardware wiring](docs/images/orca-hardware-wiring.png)
+
+[Full-size wiring diagram](docs/images/orca-hardware-wiring.png) · [Cirkit Designer project](https://app.cirkitdesigner.com/project/8dd8c75b-f0f1-4eca-acd8-ed756c08ec5a)
+
+## Check firmware behaviour without the robot
+
+After `pio run` installs MAVLink, use a host C++ compiler (`c++`, or set `CXX`) and a POSIX shell:
+
+```sh
+sh tests/check_firmware.sh
+```
+
+The check compiles the actual root-level firmware against a small hardware stub and feeds it real MAVLink packets. It checks RC direction/mixing, deadband, output saturation, mode changes, communication timeout, collision recovery and heartbeat output. It does not upload firmware or replace testing on the robot.
+
+Original firmware by Nazrin Hakeem Bin Khalid, August 2026; preserved in the legacy directory.
