@@ -23,7 +23,16 @@ It also includes built-in failsafes to immediately halt all motors if communicat
 ## 🛠️ Hardware & Wiring
 *   **Microcontroller:** Arduino Portenta H7 + Portenta Breakout Board
 *   **Flight Controller:** Holybro Pixhawk 6X
-*   **Motor Driver:** Cytron MDDS30 SmartDriveDup
+*   **Motor Driver:** Cytron MDDS30 SmartDriveDuo
+*   **Motors:** Two DC geared motors
+*   **Power:** Battery, solar panel and charge controller, power switch, terminal block, power module, and DC-DC converter
+*   **RC Input:** Receiver connected to the Pixhawk
+
+### Hardware Wiring Diagram
+
+![Orca hardware wiring showing the solar charging system, battery, motor driver, two motors, Pixhawk 6X, RC receiver, and Portenta breakout board](docs/images/orca-hardware-wiring.png)
+
+[View the full-size wiring diagram](docs/images/orca-hardware-wiring.png).
 
 ### Pin Connections
 All pin configurations are defined in `Configs.h`. 
@@ -31,7 +40,7 @@ All pin configurations are defined in `Configs.h`.
 *   **Motor 2 (Right):** PWM = D5, DIR = A4
 *   **Pixhawk UART:** Serial1 (57600 baud)
 
-*   Here is the link of the wiring diagram: https://app.cirkitdesigner.com/project/8dd8c75b-f0f1-4eca-acd8-ed756c08ec5a
+*   [Cirkit Designer wiring project](https://app.cirkitdesigner.com/project/8dd8c75b-f0f1-4eca-acd8-ed756c08ec5a)
 
 ---
 
