@@ -10,7 +10,7 @@ fi
 
 build_dir=$(mktemp -d)
 trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
-"${CXX:-c++}" -std=c++14 -Itests -I. -isystem "$mavlink_dir" \
-    main.cpp motors.cpp pixhawk.cpp tests/firmware_check.cpp \
+"${CXX:-c++}" -std=c++14 -Itests -Isrc -isystem "$mavlink_dir" \
+    src/main.cpp src/motors.cpp src/pixhawk.cpp tests/firmware_check.cpp \
     -o "$build_dir/firmware_check"
 "$build_dir/firmware_check"

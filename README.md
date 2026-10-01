@@ -2,7 +2,7 @@
 
 Firmware for the Portenta H7 robot, with two DC geared motors driven by a Cytron MDDS30 and a Pixhawk 6X connected over MAVLink.
 
-The active firmware is ordinary C++ (`.cpp` and `.h`) at the repository root. The original Arduino sketch is preserved in `OrcaMK1_DualDrive_legacy/` and is excluded from the build.
+The active firmware is ordinary C++ (`.cpp` and `.h`) in `src/`. The original Arduino sketch is preserved in `OrcaMK1_DualDrive_legacy/` and is excluded from the build.
 
 Current modes are **Manual RC** and **Auto forward with collision recovery**. GPS waypoint navigation is not implemented yet.
 
@@ -40,15 +40,15 @@ The monitor is configured for 57600 baud. The firmware currently emits no debug 
 
 | File | Responsibility |
 | --- | --- |
-| [`config.h`](config.h) | Pin assignments, baud rate, motor speeds, RC deadband, collision threshold and timing. Start here for tuning. |
-| [`main.cpp`](main.cpp) | `setup()` and `loop()`: serial startup, status LED, motor initialization and the main update call. |
-| [`motors.cpp`](motors.cpp) / [`motors.h`](motors.h) | Motor PWM/direction outputs, startup pulses, movement commands and manual skid-steer mixing. |
-| [`pixhawk.cpp`](pixhawk.cpp) / [`pixhawk.h`](pixhawk.h) | MAVLink heartbeat, RC mode selection, collision recovery and connection timeout. Owns its control state privately. |
+| [`src/config.h`](src/config.h) | Pin assignments, baud rate, motor speeds, RC deadband, collision threshold and timing. Start here for tuning. |
+| [`src/main.cpp`](src/main.cpp) | `setup()` and `loop()`: serial startup, status LED, motor initialization and the main update call. |
+| [`src/motors.cpp`](src/motors.cpp) / [`src/motors.h`](src/motors.h) | Motor PWM/direction outputs, startup pulses, movement commands and manual skid-steer mixing. |
+| [`src/pixhawk.cpp`](src/pixhawk.cpp) / [`src/pixhawk.h`](src/pixhawk.h) | MAVLink heartbeat, RC mode selection, collision recovery and connection timeout. Owns its control state privately. |
 | [`platformio.ini`](platformio.ini) | Board, dependencies, source files, upload and monitor settings. |
 | [`tests/`](tests/) | Host behaviour check using simulated serial, pins and time. |
 | [`OrcaMK1_DualDrive_legacy/`](OrcaMK1_DualDrive_legacy/) | Unmodified original sketch, kept for reference only. |
 
-`platformio.ini` explicitly builds only `main.cpp`, `motors.cpp` and `pixhawk.cpp`. Add new firmware `.cpp` files to `build_src_filter` when extending the project; tests and legacy files are not firmware inputs. Keep motor control and MAVLink handling in their own modules.
+PlatformIO uses its default `src/` directory. `platformio.ini` explicitly builds only `main.cpp`, `motors.cpp` and `pixhawk.cpp` within it. Add new firmware `.cpp` files to `build_src_filter` when extending the project; tests and legacy files are not firmware inputs. Keep motor control and MAVLink handling in their own modules.
 
 ## Control flow
 
@@ -103,6 +103,6 @@ After `pio run` installs MAVLink, use a host C++ compiler (`c++`, or set `CXX`) 
 sh tests/check_firmware.sh
 ```
 
-The check compiles the actual root-level firmware against a small hardware stub and feeds it real MAVLink packets. It checks RC direction/mixing, deadband, output saturation, mode changes, communication timeout, collision recovery and heartbeat output. It does not upload firmware or replace testing on the robot.
+The check compiles the actual firmware in `src/` against a small hardware stub and feeds it real MAVLink packets. It checks RC direction/mixing, deadband, output saturation, mode changes, communication timeout, collision recovery and heartbeat output. It does not upload firmware or replace testing on the robot.
 
 Original firmware by Nazrin Hakeem Bin Khalid, August 2026; preserved in the legacy directory.
